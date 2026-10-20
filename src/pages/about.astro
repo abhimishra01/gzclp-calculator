@@ -1,0 +1,16 @@
+---
+import Page from '../layouts/Page.astro';
+import site from '../site.config.ts';
+import { url } from '../lib/url.ts';
+---
+<Page title="About" description={`About ${site.name}: a free GZCLP planner that tracks weights, stages and plates.`}>
+  <p>{site.name} is a free planner for the GZCLP strength program. You enter your current weights. The tool shows today's session, the plates for each side of the bar, and what happens next after a pass or a fail.</p>
+  <h2>What it does</h2>
+  <p>It follows the rules from the r/Fitness Wiki write-up of GZCLP, which is based on the GZCL method by Cody LeFever. It tracks the T1 stages (5x3+, 6x2+, 10x1+), the T2 stages (3x10, 3x8, 3x6) and the T3 sets (3x15+). It applies the weight jumps and the reset rules for you.</p>
+  <h2>How your data is handled</h2>
+  <p>The planner runs in your browser. Your weights and your log stay on your device, in your browser's local storage. We do not send them anywhere, and we do not ask you to create an account. If you clear your browser data, the log is gone, so use the print button if you want a paper copy.</p>
+  <h2>What it does not do</h2>
+  <p>It is not a coach and it is not medical advice. It does not judge your form. Talk to a doctor before you start a new program. Lift with collars, check that plates sit fully on the sleeve, and use a spotter or safety bars on heavy sets.</p>
+  <h2>Contact</h2>
+  <p>Questions or ideas? Write to <a href={`mailto:${site.email}`}>{site.email}</a> or visit the <a href={url('contact/')}>Contact page</a>.</p>
+</Page>

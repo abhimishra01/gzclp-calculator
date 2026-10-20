@@ -1,0 +1,68 @@
+---
+// SEO article. Rules and numbers follow the r/Fitness Wiki write-up of GZCLP (thefitness.wiki/routines/gzclp/).
+import site from '../site.config.ts';
+---
+<section aria-labelledby="about-tool" class="mx-auto max-w-5xl px-4 pt-16">
+  <article class="prose-site">
+    <h2 id="about-tool" style="margin-top:0">What is a GZCLP calculator?</h2>
+    <p>A {site.keyword} keeps the numbers of the GZCLP program for you. It shows which lift you do today, how many sets and reps, and how much weight is on the bar. After each workout it applies the progression rules, so you do not need a spreadsheet.</p>
+    <p>GZCLP is a beginner strength program. It is based on the GZCL method by Cody LeFever and is described in the r/Fitness Wiki. You train four lifts, the squat, bench press, overhead press and deadlift, and a few accessory lifts. Each workout has three tiers.</p>
+
+    <h2>How the three tiers work</h2>
+    <p>T1 is the heavy lift of the day. T2 is a second lift with lighter weight and more reps. T3 is light accessory work. Each tier has its own sets, reps and rules for failure.</p>
+    <table>
+      <thead><tr><th>Tier</th><th>Stage 1</th><th>Stage 2</th><th>Stage 3</th><th>Rest</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">T1</th><td>5 × 3+</td><td>6 × 2+</td><td>10 × 1+</td><td>3 to 5 min</td></tr>
+        <tr><th scope="row">T2</th><td>3 × 10</td><td>3 × 8</td><td>3 × 6</td><td>2 to 3 min</td></tr>
+        <tr><th scope="row">T3</th><td>3 × 15+</td><td colspan="2">No later stages</td><td>1 to 1.5 min</td></tr>
+      </tbody>
+    </table>
+    <p>A plus sign means the last set is "as many reps as possible" (AMRAP). Stop one or two reps before you fail, and watch for a clear drop in bar speed.</p>
+
+    <h2>The four workouts</h2>
+    <table>
+      <thead><tr><th>Workout</th><th>T1</th><th>T2</th><th>T3</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Day 1</th><td>Squat</td><td>Bench press</td><td>Lat pulldown</td></tr>
+        <tr><th scope="row">Day 2</th><td>Overhead press</td><td>Deadlift</td><td>Dumbbell row</td></tr>
+        <tr><th scope="row">Day 3</th><td>Bench press</td><td>Squat</td><td>Lat pulldown</td></tr>
+        <tr><th scope="row">Day 4</th><td>Deadlift</td><td>Overhead press</td><td>Dumbbell row</td></tr>
+      </tbody>
+    </table>
+
+    <h2>How to use this GZCLP calculator</h2>
+    <ol>
+      <li>Under Your program, choose pounds or kilograms and type the weight for each T1, T2 and T3 lift. If you know your 5-rep max, type it and the tool sets T1 to 85 percent of it.</li>
+      <li>Pick your bar and the plates your gym has. The tool shows what to load on each side.</li>
+      <li>Do the workout. For each T1 and T2 lift, choose Pass or Miss. For T3, enter the reps you did on the last set.</li>
+      <li>Press Log this session. The tool updates every weight and moves to the next day.</li>
+    </ol>
+    <p>The line under each lift shows what happens next time after a pass and after a miss, so you can see the plan before you start.</p>
+
+    <h2>Worked example</h2>
+    <p>You squat 135 lb for 5 × 3+ in T1. You get at least 3 reps on every set, so you pass. The squat is a lower body lift, so it goes up 10 lb. Next time you squat 145 lb for 5 × 3+.</p>
+    <p>A few weeks later you squat 185 lb and miss a set. You do not add weight. You stay at 185 lb and move to 6 × 2+. If you miss again, you move to 10 × 1+ at 185 lb. If you miss that too, the cycle resets.</p>
+
+    <h2>What happens when you fail</h2>
+    <ul>
+      <li><strong>T1:</strong> a miss moves you to the next stage at the same weight. After a miss at 10 × 1+, test a new 5-rep max and restart 5 × 3+ at 85 percent of it. Without a test, this tool uses 85 percent of the weight you failed with.</li>
+      <li><strong>T2:</strong> a miss moves you from 3 × 10 to 3 × 8 to 3 × 6 at the same weight. After a miss at 3 × 6, restart 3 × 10 at the last 3 × 10 weight plus 15 lb (7.5 kg). The source suggests 15 to 20 lb.</li>
+      <li><strong>T3:</strong> add weight when you reach 25 or more reps on the last set. Otherwise keep the weight.</li>
+    </ul>
+
+    <h2>Common weight jumps</h2>
+    <table>
+      <thead><tr><th>Lift</th><th>Jump in lb</th><th>Jump in kg</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Squat, deadlift</th><td>10</td><td>5</td></tr>
+        <tr><th scope="row">Bench press, overhead press</th><td>5</td><td>2.5</td></tr>
+        <tr><th scope="row">Lat pulldown, dumbbell row (T3)</th><td>5</td><td>2.5</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Why use this one?</h2>
+    <p>It does the math for the whole program in one place. It works on a phone, in the gym, with one hand. It keeps your log on your own device and needs no account. It also prints the next three sessions with a tick box for every set.</p>
+    <p>This tool does arithmetic and keeps records. It is not medical advice. Talk to a doctor before you start a new program.</p>
+  </article>
+</section>
