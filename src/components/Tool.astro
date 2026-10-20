@@ -75,6 +75,7 @@
   .g-primary { width:100%; min-height:3.5rem; border-radius:.75rem; border:1px solid var(--brand); background:var(--brand); color:#fff; font-weight:700; font-size:1.1rem; cursor:pointer; }
   .g-primary:hover { filter:brightness(1.08); }
   .g-logbar { position:sticky; bottom:.5rem; z-index:5; padding:.5rem; margin:0 -.5rem; border-radius:1rem; background:var(--card); }
+  @media (max-width: 767px) { html { scroll-padding-bottom: 6rem; } } /* keep a focused control clear of the sticky log bar */
   @media (min-width: 768px) { .g-logbar { position:static; padding:0; margin:1rem 0 0; background:none; } }
 
   .g-card { border:1px solid var(--line); border-radius:.9rem; background:var(--paper); padding:.85rem 1rem; }
