@@ -37,7 +37,7 @@
         </div>
       </fieldset>
       <p id="setup-err" role="alert" class="min-h-0 text-sm font-semibold text-red-700 dark:text-red-400"></p>
-      <p class="text-sm text-muted">Switching units rounds every weight to the nearest 5 lb or 2.5 kg, so a round trip can change a weight by a step.</p>
+      <p class="text-sm text-muted">Switching units rounds every weight to the nearest 5 lb or 2.5 kg. Switch straight back and your first numbers return.</p>
       <p class="text-sm text-muted">Type the weight you will lift next time. T1 starts near your 5-rep max (85 percent is common). T2 starts at a weight you could lift for 10 reps with a few to spare. T3 starts at a weight you can lift for 15 or more reps.</p>
       <div id="lifts" class="space-y-4"></div>
       <fieldset>
@@ -137,6 +137,10 @@
   const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 1 && x <= MAX_WEIGHT[state.unit as Unit];
   const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify({ state, log })); } catch {} };
 
+  // The weights before the last unit switch, so switching straight back restores them (135 lb, 60 kg, 135 lb).
+  // Any edit, log or undo clears it, because the old numbers would then be out of date.
+  let anchor: { unit: Unit; slots: any } | null = null;
+  const cloneSlots = (slots: any) => Object.fromEntries(Object.entries(slots).map(([k, v]: [string, any]) => [k, { ...v }]));
   const picks: Record<string, 'pass' | 'fail'> = {};
   const reps: Record<string, number> = {};
   const unitOf = () => state.unit as Unit;
@@ -269,6 +273,7 @@
     }
     const done = logSession({ state, log }, results, new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
     ({ state, log } = done.store);
+    anchor = null;
     for (const k of Object.keys(picks)) delete picks[k];
     for (const k of Object.keys(reps)) delete reps[k];
     buildSetup(); renderAll();
@@ -278,6 +283,7 @@
   $('undo-btn').addEventListener('click', () => {
     if (!log.length) return;
     ({ state, log } = undoSession({ state, log }));
+    anchor = null;
     buildSetup(); renderAll();
     $('log-status').textContent = 'Last session undone.';
   });
@@ -287,7 +293,10 @@
   });
 
   $('unit-group').addEventListener('change', (e) => {
-    state = convertState(state, (e.target as HTMLInputElement).value as Unit);
+    const to = (e.target as HTMLInputElement).value as Unit;
+    const prev = { unit: state.unit as Unit, slots: cloneSlots(state.slots) };
+    state = anchor && anchor.unit === to ? { ...state, unit: to, slots: cloneSlots(anchor.slots) } : convertState(state, to);
+    anchor = prev;
     buildSetup(); renderAll();
   });
   $('bar-group').addEventListener('change', (e) => { state.prefs.bar[unitOf()] = Number((e.target as HTMLInputElement).value); renderSession(); save(); });
@@ -300,6 +309,7 @@
   const showErr = (msg: string) => { $('setup-err').textContent = msg; };
   setup.addEventListener('input', (e) => {
     const t = e.target as HTMLInputElement;
+    if (t.dataset.w || t.dataset.base || t.dataset.rm) anchor = null;
     if (t.dataset.w) {
       const v = parseNumber(t.value);
       const ok = isNum(v);
@@ -336,6 +346,7 @@
   setup.addEventListener('change', (e) => {
     const t = e.target as HTMLSelectElement;
     if (!t.dataset.stage) return;
+    anchor = null;
     const s = state.slots[t.dataset.stage];
     s.stage = Number(t.value); if (s.stage === 0) s.base = s.weight;
     const row = setup.querySelector(`[data-base-row="${t.dataset.stage}"]`) as HTMLElement | null;
@@ -361,7 +372,7 @@
   // Print: the four-day cycle at today's weights, with a tick box for each set.
   $('print-btn').addEventListener('click', () => {
     const u = unitOf();
-    const rows = (items: any[]) => items.map((it) => `<tr><td>${it.tier.toUpperCase()}</td><td>${it.name}</td><td>${schemeText(it)}</td><td>${fmt(it.weight)} ${u}</td><td>${sideText(it.weight, it.lift).replace('Each side: ', '') || 'n/a'}</td><td class="box">${'□'.repeat(it.sets)}</td></tr>`).join('');
+    const rows = (items: any[]) => items.map((it) => `<tr><td>${it.tier.toUpperCase()}</td><td>${it.name}</td><td>${schemeText(it)}</td><td>${fmt(it.weight)} ${u}</td><td>${sideText(it.weight, it.lift).replace('Each side: ', '').replace('Turn on a plate size', 'n/a') || 'n/a'}</td><td class="box">${'□'.repeat(it.sets)}</td></tr>`).join('');
     $('print-week').innerHTML = `<h2>GZCLP: four-day cycle</h2>
       <p>Printed ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Weights in ${u}, as of today. Weights go up after each pass, so update them as you log. A "+" means the last set is as many reps as you can do, with 1 or 2 reps left in reserve.</p>
       ${upcoming(state, 4).map((s: any) => `<h3>Day ${DAYS[s.day].id}</h3><table><thead><tr><th>Tier</th><th>Lift</th><th>Sets × reps</th><th>Weight</th><th>Each side</th><th>Done</th></tr></thead><tbody>${rows(s.items)}</tbody></table>`).join('')}
