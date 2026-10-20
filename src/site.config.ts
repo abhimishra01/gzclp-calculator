@@ -15,7 +15,7 @@ export default {
   ga4: '',                            // GA4 measurement ID, e.g. 'G-XXXXXXXXXX'. Empty = Google Analytics off
   adsense: '',                        // AdSense publisher ID, e.g. 'ca-pub-1234567890123456'. Empty = ads off
   brand: '#0369a1',                   // brand color (hex)
-  skin: 'retro',                      // visual skin: minimal, swiss, clay or retro
+  skin: 'retro',                      // visual skin: only retro exists on this site
   locale: 'en-US',                    // BCP 47 language tag
   ogImage: '/og.png',
   category: 'HealthApplication',   // schema.org applicationCategory

@@ -65,5 +65,5 @@
 :root[data-skin="retro"][data-theme] .alt-btn:hover { background: var(--ink); color: var(--card); }
 :root[data-skin="retro"][data-theme] .alt-btn:disabled { box-shadow: none; }
 :root[data-skin="retro"][data-theme] .g-log { border-left-color: var(--ink); }
-:root[data-skin="retro"][data-theme] .g-logbar { background: color-mix(in oklab, var(--card) 94%, transparent); }
+:root[data-skin="retro"][data-theme] .g-logbar { background: var(--card); }
 @media (min-width: 768px) { :root[data-skin="retro"][data-theme] .g-logbar { background: none; } }

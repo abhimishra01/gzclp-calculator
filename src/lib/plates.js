@@ -10,13 +10,9 @@ export const DEFAULT_PLATES = {
 };
 // Preset bar weights. The bar id in the UI is the weight as a string, or 'custom'.
 export const BARS = { lb: [45, 35], kg: [20, 15] };
-// Smallest practical jump for the target field and for rounding warm-ups.
-export const STEP = { lb: 5, kg: 2.5 };
-export const MAX_TARGET = 4999;
 
 export const toHundredths = (w) => Math.round(w * 100);
 export const fromHundredths = (h) => h / 100;
-export const fmt = (n) => String(+Number(n).toFixed(2));
 
 // Smallest set of plates that adds up to every reachable sum from 0 to limit (unbounded plates, fewest plates).
 function buildTable(plateHundredths, limit) {
@@ -59,20 +55,19 @@ export function nearestSides(sideWeight, plates) {
   };
 }
 
-const loadedTotal = (bar, collarPair, side) => fromHundredths(toHundredths(bar) + toHundredths(collarPair) + 2 * toHundredths(side));
+const loadedTotal = (bar, side) => fromHundredths(toHundredths(bar) + 2 * toHundredths(side));
 
-// target: total weight wanted. bar: bar weight. collar: weight of ONE collar (0 for none). plates: enabled plate weights.
-export function solve({ target, bar, collar = 0, plates }) {
+// target: total weight wanted. bar: bar weight. plates: enabled plate weights.
+export function solve({ target, bar, plates }) {
   if (!(target > 0)) return { status: 'empty' };
-  const collarPair = collar * 2;
-  const base = fromHundredths(toHundredths(bar) + toHundredths(collarPair));
+  const base = bar;
   const sideWanted = (toHundredths(target) - toHundredths(base)) / 200;
   if (sideWanted <= 0) {
     return { status: toHundredths(target) === toHundredths(base) ? 'bar' : 'below', base, target, total: base, side: 0, list: [] };
   }
   const { lower, upper } = nearestSides(sideWanted, plates);
-  const lowTotal = loadedTotal(bar, collarPair, lower.sum);
-  const upTotal = loadedTotal(bar, collarPair, upper.sum);
+  const lowTotal = loadedTotal(bar, lower.sum);
+  const upTotal = loadedTotal(bar, upper.sum);
   const dLow = Math.abs(toHundredths(target) - toHundredths(lowTotal));
   const dUp = Math.abs(toHundredths(upTotal) - toHundredths(target));
   const exact = dLow === 0 || dUp === 0;
@@ -89,26 +84,6 @@ export function solve({ target, bar, collar = 0, plates }) {
   };
 }
 
-// Warm-up ramp. step > 0 rounds each set to a practical jump (5 lb or 2.5 kg) before the plates are chosen.
-export function warmups({ target, bar, collar = 0, plates, percents = [40, 60, 80, 100], step = 0 }) {
-  return percents.map((pct) => {
-    const raw = (target * pct) / 100;
-    const want = step > 0 ? Math.round(raw / step) * step : Math.round(raw * 100) / 100;
-    const r = solve({ target: want, bar, collar, plates });
-    return { pct, want, ...r };
-  });
-}
-
-export function convertWeight(w, from, to) {
-  if (from === to) return w;
-  return from === 'lb' ? w * 0.45359237 : w / 0.45359237;
-}
-
-// Convert a target to the other unit and round it to that unit's step. An empty target stays empty.
-export function convertTarget(w, from, to) {
-  if (!(w > 0) || from === to) return w;
-  return Math.max(STEP[to], Math.round(convertWeight(w, from, to) / STEP[to]) * STEP[to]);
-}
 
 // Read a typed number. Accepts "62,5" (decimal comma) and "1,225" (thousands comma). Returns NaN if not a number.
 export function parseNumber(text) {
@@ -119,7 +94,3 @@ export function parseNumber(text) {
   return Number(t);
 }
 
-// "45 x 2, 10 x 1" for one side.
-export function describe(list) {
-  return list.map((p) => `${fmt(p.w)} x ${p.n}`).join(', ');
-}

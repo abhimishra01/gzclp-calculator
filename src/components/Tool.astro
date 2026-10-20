@@ -11,7 +11,7 @@
         <legend class="mb-2 text-sm font-semibold">Next workout</legend>
         <div class="grid grid-cols-4 gap-2" id="day-group"></div>
       </fieldset>
-      <p id="sample-note" class="mt-3 hidden rounded-xl bg-brand-soft p-3 text-sm">These are sample starting weights. Set your own under <a href="#setup" class="underline">Your program</a>.</p>
+      <p id="sample-note" class="mt-3 hidden rounded-xl bg-brand-soft p-3 text-sm">These are sample starting weights. <a href="#setup" class="alt-btn mt-2 inline-flex items-center">Set my weights</a></p>
       <h2 id="session-h" class="mt-5 text-sm font-semibold">Today's session</h2>
       <div id="session" class="mt-2 space-y-3 min-h-[34rem] md:min-h-[30rem]"></div>
       <div class="g-logbar mt-4">
@@ -36,6 +36,8 @@
           <label class="seg"><input type="radio" name="unit" value="kg" class="peer sr-only" /><span class="seg-face">Kilograms (kg)</span></label>
         </div>
       </fieldset>
+      <p id="setup-err" role="alert" class="min-h-0 text-sm font-semibold text-red-700 dark:text-red-400"></p>
+      <p class="text-sm text-muted">Switching units rounds every weight to the nearest 5 lb or 2.5 kg, so a round trip can change a weight by a step.</p>
       <p class="text-sm text-muted">Type the weight you will lift next time. T1 starts near your 5-rep max (85 percent is common). T2 starts at a weight you could lift for 10 reps with a few to spare. T3 starts at a weight you can lift for 15 or more reps.</p>
       <div id="lifts" class="space-y-4"></div>
       <fieldset>
@@ -47,7 +49,7 @@
         <p class="mb-2 text-sm text-muted">Tap to turn a plate off.</p>
         <div id="plate-group" class="flex flex-wrap gap-2"></div>
       </fieldset>
-      <button type="button" id="print-btn" class="alt-btn">Print the next 3 sessions</button>
+      <button type="button" id="print-btn" class="alt-btn">Print the four-day cycle</button>
     </div>
   </div>
 
@@ -72,7 +74,7 @@
   .alt-btn:disabled:hover { background: var(--card); color: var(--brand-ink); }
   .g-primary { width:100%; min-height:3.5rem; border-radius:.75rem; border:1px solid var(--brand); background:var(--brand); color:#fff; font-weight:700; font-size:1.1rem; cursor:pointer; }
   .g-primary:hover { filter:brightness(1.08); }
-  .g-logbar { position:sticky; bottom:.5rem; z-index:5; padding:.5rem; margin:0 -.5rem; border-radius:1rem; background:color-mix(in oklab, var(--card) 94%, transparent); }
+  .g-logbar { position:sticky; bottom:.5rem; z-index:5; padding:.5rem; margin:0 -.5rem; border-radius:1rem; background:var(--card); }
   @media (min-width: 768px) { .g-logbar { position:static; padding:0; margin:1rem 0 0; background:none; } }
 
   .g-card { border:1px solid var(--line); border-radius:.9rem; background:var(--paper); padding:.85rem 1rem; }
@@ -90,6 +92,7 @@
   .g-next { margin-top:.6rem; font-size:.95rem; font-weight:600; }
   .g-alt { margin-top:.1rem; font-size:.85rem; color:var(--muted); }
   .g-field { display:grid; grid-template-columns:4.5rem 1fr 1fr; gap:.5rem; align-items:center; }
+  .g-field[hidden] { display:none; }
   .g-field > span { font-size:.85rem; color:var(--muted); font-weight:600; }
   .g-in { height:3rem; width:100%; min-width:0; border-radius:.75rem; border:1px solid var(--edge); background:var(--paper); padding:0 .6rem; font-size:1.05rem; font-weight:600; font-variant-numeric:tabular-nums; }
   .g-in[aria-invalid="true"] { border-color:#dc2626; }
@@ -101,9 +104,10 @@
   .g-log b { font-weight:700; }
 
   #print-week { display:none; }
+  .g-in[aria-invalid="true"], :root[data-skin="retro"][data-theme] .g-in[aria-invalid="true"] { border-color:#dc2626; }
   @media print {
     header, footer, .no-print, main > section:not(:first-child), main > article, a.sr-only { display:none !important; }
-    main > section:first-child > :not(#tool) { display:none !important; }
+    main > section:first-child > :not(.tool-wrap) { display:none !important; }
     #tool { border:0 !important; box-shadow:none !important; background:none !important; padding:0 !important; }
     #tool > :not(#print-week) { display:none !important; }
     #print-week { display:block !important; color:#000; font-family:ui-sans-serif,system-ui,sans-serif; }
@@ -118,45 +122,26 @@
   }
 </style>
 <script>
-  import { DAYS, LIFTS, MAIN, ACCESSORY, SCHEMES, STEP, T3_BUMP_REPS, defaultState, sessionFor, schemeText, progress, applySession, upcoming, fromFiveRM, convertState, fmt, slotKey } from '../lib/gzclp.js';
-  import { PLATES, DEFAULT_PLATES, BARS, MAX_TARGET, solve, parseNumber } from '../lib/plates.js';
+  import { DAYS, LIFTS, MAIN, ACCESSORY, SCHEMES, MAX_WEIGHT, T3_BUMP_REPS, sessionFor, schemeText, progress, resetHint, upcoming, fromFiveRM, convertState, fmt, slotKey } from '../lib/gzclp.js';
+  import { PLATES, BARS, solve, parseNumber } from '../lib/plates.js';
+  import { STORE_KEY, loadStore, logSession, undoSession } from '../lib/store.js';
 
   type Unit = 'lb' | 'kg';
-  const KEY = 'gzclp-v1';
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-  const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x > 0 && x <= MAX_TARGET;
+  const esc = (t: unknown) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
-  let state: any = defaultState('lb');
-  state.prefs = { bar: { lb: 45, kg: 20 }, plates: { lb: [...DEFAULT_PLATES.lb], kg: [...DEFAULT_PLATES.kg] } };
-  state.touched = false;
-  let log: any[] = [];
+  let saved: string | null = null;
+  try { saved = localStorage.getItem(STORE_KEY); } catch {}
+  let { state, log }: { state: any; log: any[] } = loadStore(saved);
+  const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 1 && x <= MAX_WEIGHT[state.unit as Unit];
+  const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify({ state, log })); } catch {} };
 
-  try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (saved && saved.state && (saved.state.unit === 'lb' || saved.state.unit === 'kg')) {
-      const s = saved.state, base = defaultState(s.unit);
-      let ok = Number.isInteger(s.day) && s.day >= 0 && s.day < 4;
-      for (const k of Object.keys(base.slots)) {
-        const x = s.slots?.[k];
-        if (!x || !isNum(x.weight) || !isNum(x.base) || ![0, 1, 2].includes(x.stage) || (k.includes('.') ? false : x.stage !== 0)) ok = false;
-      }
-      if (ok) {
-        state.unit = s.unit; state.day = s.day; state.slots = s.slots; state.touched = s.touched === true;
-        for (const u of ['lb', 'kg'] as Unit[]) {
-          if (isNum(s.prefs?.bar?.[u])) state.prefs.bar[u] = s.prefs.bar[u];
-          if (Array.isArray(s.prefs?.plates?.[u])) state.prefs.plates[u] = s.prefs.plates[u].filter((w: unknown) => (PLATES[u] as number[]).includes(w as number));
-        }
-        if (Array.isArray(saved.log)) log = saved.log.slice(0, 50);
-      }
-    }
-  } catch {}
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ state, log })); } catch {} };
-
-  const picks: Record<string, 'pass' | 'miss'> = {};
+  const picks: Record<string, 'pass' | 'fail'> = {};
   const reps: Record<string, number> = {};
   const unitOf = () => state.unit as Unit;
 
-  const sideText = (weight: number) => {
+  const sideText = (weight: number, lift: string) => {
+    if (ACCESSORY.includes(lift)) return ''; // machine and dumbbell lifts have no plates per side
     const u = unitOf();
     const bar = state.prefs.bar[u];
     const r: any = solve({ target: weight, bar, plates: state.prefs.plates[u] });
@@ -171,7 +156,7 @@
     const u = unitOf();
     const n: any = progress(tier, lift, slot, input, u);
     const scheme = schemeText(SCHEMES[tier][n.stage]);
-    return `${fmt(n.weight)} ${u}, ${scheme}${n.reset ? ' (reset: test a new 5-rep max if you can, then type it under Your program)' : ''}`;
+    return `${fmt(n.weight)} ${u}, ${scheme}${n.reset ? ` (${resetHint(tier, u)})` : ''}`;
   };
 
   function buildDays() {
@@ -184,9 +169,9 @@
     $('sample-note').classList.toggle('hidden', state.touched);
     $('session').innerHTML = sessionFor(state, state.day).map((it: any) => {
       const slot = state.slots[it.key];
-      const side = sideText(it.weight);
+      const side = sideText(it.weight, it.lift);
       const head = `<div class="g-head"><span class="g-tier">${it.tier.toUpperCase()}</span><h3 class="g-name">${it.name}</h3><span class="g-rest">Rest ${it.rest}</span></div>
-        <p class="g-main">${schemeText(it)} <span>at</span> ${fmt(it.weight)} <span>${u}</span></p><p class="g-side">${side}</p>`;
+        <p class="g-main">${schemeText(it)} <span>at</span> ${fmt(it.weight)} <span>${u}</span></p>${side ? `<p class="g-side">${side}</p>` : ''}`;
       if (it.tier === 't3') {
         const r = reps[it.key] ?? 15;
         const bump = r >= T3_BUMP_REPS;
@@ -200,15 +185,15 @@
       }
       const pick = picks[it.key] || 'pass';
       const pass = outcome(it.tier, it.lift, slot, { pass: true });
-      const miss = outcome(it.tier, it.lift, slot, { pass: false });
+      const fail = outcome(it.tier, it.lift, slot, { pass: false });
       const need = it.tier === 't1' ? `at least ${it.reps} ${it.reps === 1 ? 'rep' : 'reps'} on every set` : `all ${it.reps} reps on every set`;
       return `<article class="g-card" data-key="${it.key}">${head}
         <fieldset class="g-res"><legend class="sr-only">Result for ${it.name}</legend>
           <label class="seg"><input type="radio" name="res-${it.key}" value="pass" class="peer sr-only"${pick === 'pass' ? ' checked' : ''} /><span class="seg-face">Pass<small>${need}</small></span></label>
-          <label class="seg"><input type="radio" name="res-${it.key}" value="miss" class="peer sr-only"${pick === 'miss' ? ' checked' : ''} /><span class="seg-face">Miss<small>fewer than that</small></span></label>
+          <label class="seg"><input type="radio" name="res-${it.key}" value="fail" class="peer sr-only"${pick === 'fail' ? ' checked' : ''} /><span class="seg-face">Fail<small>any set below the target</small></span></label>
         </fieldset>
-        <p class="g-next" aria-live="polite">Next time: ${pick === 'pass' ? pass : miss}</p>
-        <p class="g-alt">${pick === 'pass' ? `If you miss: ${miss}` : `If you pass: ${pass}`}</p></article>`;
+        <p class="g-next" aria-live="polite">Next time: ${pick === 'pass' ? pass : fail}</p>
+        <p class="g-alt">${pick === 'pass' ? `If you fail: ${fail}` : `If you pass: ${pass}`}</p></article>`;
     }).join('');
   }
 
@@ -223,6 +208,7 @@
         return `<fieldset class="g-lift"><legend>${LIFTS[lift].name}</legend>
           <div class="g-field"><span>T1 (${u})</span><input class="g-in" type="text" inputmode="decimal" autocomplete="off" data-w="t1.${lift}" aria-label="${LIFTS[lift].name} T1 weight in ${u}" value="${fmt(a.weight)}" /><select class="g-in" data-stage="t1.${lift}" aria-label="${LIFTS[lift].name} T1 stage (1 is the first stage)">${stageOpts('t1', a.stage)}</select></div>
           <div class="g-field"><span>T2 (${u})</span><input class="g-in" type="text" inputmode="decimal" autocomplete="off" data-w="t2.${lift}" aria-label="${LIFTS[lift].name} T2 weight in ${u}" value="${fmt(b.weight)}" /><select class="g-in" data-stage="t2.${lift}" aria-label="${LIFTS[lift].name} T2 stage">${stageOpts('t2', b.stage)}</select></div>
+          <div class="g-field" data-base-row="t2.${lift}"${b.stage > 0 ? '' : ' hidden'}><span>Base</span><input class="g-in" type="text" inputmode="decimal" autocomplete="off" data-base="t2.${lift}" aria-label="${LIFTS[lift].name} T2 last weight you lifted for 3 × 10, in ${u}" value="${fmt(b.base)}" /><span>last 3 × 10 weight</span></div>
           <div class="g-field"><span>5RM</span><input class="g-in" type="text" inputmode="decimal" autocomplete="off" data-rm="${lift}" aria-label="${LIFTS[lift].name} 5-rep max in ${u}, sets T1 to 85 percent" placeholder="Optional" /><span>sets T1 to 85%</span></div></fieldset>`;
       }
       const s = state.slots[lift];
@@ -235,11 +221,11 @@
       `<label><input type="checkbox" name="plate" value="${w}" class="peer sr-only"${state.prefs.plates[u].includes(w) ? ' checked' : ''} /><span class="plate-pill">${fmt(w)} ${u}</span></label>`).join('');
   }
 
-  const dayLine = (e: any) => e.items.map((x: any) => `${x.name} ${fmt(x.weight)} ${e.unit}, ${x.tier === 't3' ? `${x.reps} reps` : x.pass ? 'pass' : 'miss'}`).join('; ');
+  const dayLine = (e: any) => e.items.map((x: any) => `${esc(x.name)} ${fmt(x.weight)} ${e.unit}, ${x.tier === 't3' ? `${x.reps} reps` : x.pass ? 'pass' : 'fail'}`).join('; ');
   function renderLog() {
     $('log').innerHTML = log.length
-      ? log.slice(0, 6).map((e) => `<li class="g-log"><b>${e.date}, Day ${DAYS[e.prevDay].id}.</b> ${dayLine(e)}</li>`).join('')
-      : '<li class="text-muted">No sessions logged yet. Pick pass or miss for each lift, then press Log this session.</li>';
+      ? log.slice(0, 6).map((e) => `<li class="g-log"><b>${esc(e.date)}, Day ${DAYS[e.prevDay].id}.</b> ${dayLine(e)}</li>`).join('')
+      : '<li class="text-muted">No sessions logged yet. Pick pass or fail for each lift, then press Log this session.</li>';
     ($('undo-btn') as HTMLButtonElement).disabled = log.length === 0;
     ($('clear-btn') as HTMLButtonElement).disabled = log.length === 0;
   }
@@ -249,7 +235,7 @@
   $('day-group').addEventListener('change', (e) => { state.day = Number((e.target as HTMLInputElement).value); renderSession(); save(); });
   $('session').addEventListener('change', (e) => {
     const t = e.target as HTMLInputElement;
-    if (t.name.startsWith('res-')) { picks[t.name.slice(4)] = t.value as 'pass' | 'miss'; renderSession(); (document.querySelector(`input[name="${t.name}"]:checked`) as HTMLElement | null)?.focus(); }
+    if (t.name.startsWith('res-')) { picks[t.name.slice(4)] = t.value as 'pass' | 'fail'; renderSession(); (document.querySelector(`input[name="${t.name}"]:checked`) as HTMLElement | null)?.focus(); }
   });
   $('session').addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest('button[data-act]') as HTMLElement | null;
@@ -273,22 +259,24 @@
 
   $('log-btn').addEventListener('click', () => {
     const results: Record<string, any> = {};
-    for (const it of sessionFor(state, state.day) as any[]) results[it.key] = it.tier === 't3' ? { reps: reps[it.key] ?? 15 } : { pass: (picks[it.key] || 'pass') === 'pass' };
-    const before = { day: state.day, slots: state.slots, touched: state.touched };
-    const r = applySession(state, results);
-    log.unshift({ date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), prevDay: before.day, unit: state.unit, items: r.items, before });
-    log = log.slice(0, 50);
-    state = { ...r.state, touched: true };
+    for (const it of sessionFor(state, state.day) as any[]) {
+      if (it.tier !== 't3') { results[it.key] = { pass: (picks[it.key] || 'pass') === 'pass' }; continue; }
+      const box = document.getElementById(`reps-${it.key}`) as HTMLInputElement | null;
+      const v = box && /^\d{1,2}$/.test(box.value.trim()) ? Number(box.value.trim()) : NaN;
+      if (!Number.isFinite(v)) { $('log-status').textContent = `Enter the reps you did on the last set of ${it.name}.`; box?.focus(); return; }
+      results[it.key] = { reps: v };
+    }
+    const done = logSession({ state, log }, results, new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    ({ state, log } = done.store);
     for (const k of Object.keys(picks)) delete picks[k];
     for (const k of Object.keys(reps)) delete reps[k];
     buildSetup(); renderAll();
-    const resets = r.items.filter((x: any) => x.reset).map((x: any) => x.name);
+    const resets = done.items.filter((x: any) => x.reset).map((x: any) => x.name);
     $('log-status').textContent = `Session logged. Next up: Day ${DAYS[state.day].id}.${resets.length ? ` Reset for ${resets.join(', ')}.` : ''}`;
   });
   $('undo-btn').addEventListener('click', () => {
-    const last = log.shift();
-    if (!last) return;
-    state = { ...state, day: last.before.day, slots: last.before.slots, touched: last.before.touched };
+    if (!log.length) return;
+    ({ state, log } = undoSession({ state, log }));
     buildSetup(); renderAll();
     $('log-status').textContent = 'Last session undone.';
   });
@@ -308,19 +296,33 @@
   });
 
   const setup = $('setup');
+  const showErr = (msg: string) => { $('setup-err').textContent = msg; };
   setup.addEventListener('input', (e) => {
     const t = e.target as HTMLInputElement;
     if (t.dataset.w) {
       const v = parseNumber(t.value);
       const ok = isNum(v);
       t.setAttribute('aria-invalid', String(!ok));
+      showErr(ok ? '' : `Enter a weight from 1 to ${MAX_WEIGHT[unitOf()]} ${unitOf()}.`);
       if (!ok) return;
       const s = state.slots[t.dataset.w];
-      s.weight = v; if (s.stage === 0) s.base = v;
+      s.weight = v; if (s.stage === 0 || s.base > v) s.base = v;
+      const baseBox = setup.querySelector(`[data-base="${t.dataset.w}"]`) as HTMLInputElement | null;
+      if (baseBox) baseBox.value = fmt(s.base);
       state.touched = true; renderSession(); save();
+    } else if (t.dataset.base) {
+      const v = parseNumber(t.value);
+      const s = state.slots[t.dataset.base];
+      const ok = isNum(v) && v <= s.weight;
+      t.setAttribute('aria-invalid', String(!ok));
+      showErr(ok ? '' : `Enter the last 3 × 10 weight: from 1 up to ${fmt(s.weight)} ${unitOf()}.`);
+      if (!ok) return;
+      s.base = v; state.touched = true; renderSession(); save();
     } else if (t.dataset.rm) {
       const v = parseNumber(t.value);
-      t.setAttribute('aria-invalid', String(t.value.trim() !== '' && !isNum(v)));
+      const bad = t.value.trim() !== '' && !isNum(v);
+      t.setAttribute('aria-invalid', String(bad));
+      showErr(bad ? `Enter a 5-rep max from 1 to ${MAX_WEIGHT[unitOf()]} ${unitOf()}.` : '');
       if (!isNum(v)) return;
       const w = fromFiveRM(v, unitOf());
       const s = state.slots[`t1.${t.dataset.rm}`];
@@ -335,21 +337,33 @@
     if (!t.dataset.stage) return;
     const s = state.slots[t.dataset.stage];
     s.stage = Number(t.value); if (s.stage === 0) s.base = s.weight;
+    const row = setup.querySelector(`[data-base-row="${t.dataset.stage}"]`) as HTMLElement | null;
+    if (row) {
+      row.hidden = s.stage === 0;
+      (row.querySelector('input') as HTMLInputElement).value = fmt(s.base);
+      if (s.stage > 0) (row.querySelector('input') as HTMLInputElement).focus();
+    }
     state.touched = true; renderSession(); save();
   });
   setup.addEventListener('focusout', (e) => {
     const t = e.target as HTMLInputElement;
     if (t.dataset.w) { t.value = fmt(state.slots[t.dataset.w].weight); t.removeAttribute('aria-invalid'); }
+    if (t.dataset.base) { t.value = fmt(state.slots[t.dataset.base].base); t.removeAttribute('aria-invalid'); }
     if (t.dataset.rm && t.value.trim() === '') t.removeAttribute('aria-invalid');
+    showErr('');
+  });
+  $('session').addEventListener('focusout', (e) => {
+    const t = e.target as HTMLInputElement;
+    if (t.dataset.reps) t.value = String(reps[t.dataset.reps] ?? 15); // an empty or bad box goes back to the number in use
   });
 
-  // Print: the next three sessions with a tick box for each set.
+  // Print: the four-day cycle at today's weights, with a tick box for each set.
   $('print-btn').addEventListener('click', () => {
     const u = unitOf();
-    const rows = (items: any[]) => items.map((it) => `<tr><td>${it.tier.toUpperCase()}</td><td>${it.name}</td><td>${schemeText(it)}</td><td>${fmt(it.weight)} ${u}</td><td>${sideText(it.weight).replace('Each side: ', '')}</td><td class="box">${'□'.repeat(it.sets)}</td></tr>`).join('');
-    $('print-week').innerHTML = `<h2>GZCLP: next 3 sessions</h2>
-      <p>Printed ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Weights in ${u}. A "+" means the last set is as many reps as you can do, with 1 or 2 reps left in reserve.</p>
-      ${upcoming(state, 3).map((s: any) => `<h3>Day ${DAYS[s.day].id}</h3><table><thead><tr><th>Tier</th><th>Lift</th><th>Sets × reps</th><th>Weight</th><th>Each side</th><th>Done</th></tr></thead><tbody>${rows(s.items)}</tbody></table>`).join('')}
+    const rows = (items: any[]) => items.map((it) => `<tr><td>${it.tier.toUpperCase()}</td><td>${it.name}</td><td>${schemeText(it)}</td><td>${fmt(it.weight)} ${u}</td><td>${sideText(it.weight, it.lift).replace('Each side: ', '') || 'n/a'}</td><td class="box">${'□'.repeat(it.sets)}</td></tr>`).join('');
+    $('print-week').innerHTML = `<h2>GZCLP: four-day cycle</h2>
+      <p>Printed ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Weights in ${u}, as of today. Weights go up after each pass, so update them as you log. A "+" means the last set is as many reps as you can do, with 1 or 2 reps left in reserve.</p>
+      ${upcoming(state, 4).map((s: any) => `<h3>Day ${DAYS[s.day].id}</h3><table><thead><tr><th>Tier</th><th>Lift</th><th>Sets × reps</th><th>Weight</th><th>Each side</th><th>Done</th></tr></thead><tbody>${rows(s.items)}</tbody></table>`).join('')}
       <p>Pass T1: at least the target reps on every set. Pass T2: every rep of every set. T3: ${T3_BUMP_REPS} or more reps on the last set adds weight. Not medical advice.</p>`;
     window.print();
   });

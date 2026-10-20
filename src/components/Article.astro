@@ -35,23 +35,24 @@ import site from '../site.config.ts';
     <ol>
       <li>Under Your program, choose pounds or kilograms and type the weight for each T1, T2 and T3 lift. If you know your 5-rep max, type it and the tool sets T1 to 85 percent of it.</li>
       <li>Pick your bar and the plates your gym has. The tool shows what to load on each side.</li>
-      <li>Do the workout. For each T1 and T2 lift, choose Pass or Miss. For T3, enter the reps you did on the last set.</li>
+      <li>Do the workout. For each T1 and T2 lift, choose Pass or Fail. For T3, enter the reps you did on the last set.</li>
       <li>Press Log this session. The tool updates every weight and moves to the next day.</li>
     </ol>
-    <p>The line under each lift shows what happens next time after a pass and after a miss, so you can see the plan before you start.</p>
+    <p>The line under each lift shows what happens next time after a pass and after a fail, so you can see the plan before you start.</p>
 
     <h2>Worked example</h2>
     <p>You squat 135 lb for 5 × 3+ in T1. You get at least 3 reps on every set, so you pass. The squat is a lower body lift, so it goes up 10 lb. Next time you squat 145 lb for 5 × 3+.</p>
-    <p>A few weeks later you squat 185 lb and miss a set. You do not add weight. You stay at 185 lb and move to 6 × 2+. If you miss again, you move to 10 × 1+ at 185 lb. If you miss that too, the cycle resets.</p>
+    <p>A few weeks later you squat 185 lb and fail a set. You do not add weight. You stay at 185 lb and move to 6 × 2+. If you fail again, you move to 10 × 1+ at 185 lb. If you fail that too, the cycle resets.</p>
 
-    <h2>What happens when you fail</h2>
+    <h2>GZCLP reset: what happens when you fail</h2>
     <ul>
-      <li><strong>T1:</strong> a miss moves you to the next stage at the same weight. After a miss at 10 × 1+, test a new 5-rep max and restart 5 × 3+ at 85 percent of it. Without a test, this tool uses 85 percent of the weight you failed with.</li>
-      <li><strong>T2:</strong> a miss moves you from 3 × 10 to 3 × 8 to 3 × 6 at the same weight. After a miss at 3 × 6, restart 3 × 10 at the last 3 × 10 weight plus 15 lb (7.5 kg). The source suggests 15 to 20 lb.</li>
+      <li><strong>T1:</strong> a fail moves you to the next stage at the same weight. After a fail at 10 × 1+, test a new 5-rep max and restart 5 × 3+ at 85 percent of it. Without a test, this tool uses 85 percent of the weight you failed with.</li>
+      <li><strong>T2:</strong> a fail moves you from 3 × 10 to 3 × 8 to 3 × 6 at the same weight. After a fail at 3 × 6, restart 3 × 10 at the last 3 × 10 weight plus 15 lb (7.5 kg). The source suggests 15 to 20 lb.</li>
       <li><strong>T3:</strong> add weight when you reach 25 or more reps on the last set. Otherwise keep the weight.</li>
     </ul>
 
     <h2>Common weight jumps</h2>
+    <p>The wiki gives pounds only: 5 lb for bench and overhead press, 10 lb for squat and deadlift. The kilogram numbers are the same jumps in kilograms. The wiki does not say how much to add to T3, so this tool adds 5 lb (2.5 kg).</p>
     <table>
       <thead><tr><th>Lift</th><th>Jump in lb</th><th>Jump in kg</th></tr></thead>
       <tbody>
@@ -61,8 +62,13 @@ import site from '../site.config.ts';
       </tbody>
     </table>
 
+    <h2>Starting weights and warm-ups</h2>
+    <p>The wiki does not give starting weights, so these are this tool's suggestions. Start T1 near a weight you could lift for 5 reps (85 percent of your 5-rep max is common, and you can type your 5-rep max under Your program). Start T2 at a weight you could lift for 10 reps with a few to spare. Start T3 at a weight you can lift for 15 or more reps. When in doubt, start lighter. The first weeks should feel easy.</p>
+    <p>The program does not define warm-up sets. A common habit is to do a set with the empty bar, then two or three lighter sets of 3 to 5 reps on the way up to your first T1 weight. These sets are not part of the progression, and the tool does not track them. AMRAP means "as many reps as possible": stop one or two reps before you would fail.</p>
+
     <h2>Why use this one?</h2>
-    <p>It does the math for the whole program in one place. It works on a phone, in the gym, with one hand. It keeps your log on your own device and needs no account. It also prints the next three sessions with a tick box for every set.</p>
+    <p>It does the math for the whole program in one place. It works on a phone, in the gym, with one hand. It keeps your log on your own device and needs no account. It also prints the four-day cycle with a tick box for every set.</p>
+    <p>Source: <a href="https://thefitness.wiki/routines/gzclp/" rel="noopener">GZCLP in the r/Fitness Wiki</a>.</p>
     <p>This tool does arithmetic and keeps records. It is not medical advice. Talk to a doctor before you start a new program.</p>
   </article>
 </section>

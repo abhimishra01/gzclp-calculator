@@ -29,6 +29,8 @@ export const REST = { t1: '3 to 5 min', t2: '2 to 3 min', t3: '1 to 1.5 min' };
 export const T1_RESET = 0.85;            // new T1 weight after failing the 10x1+ stage, as a share of the weight used
 export const T3_BUMP_REPS = 25;          // reps on the last T3 set that earn a weight increase
 export const STEP = { lb: 5, kg: 2.5 }; // rounding step for computed weights
+export const MAX_WEIGHT = { lb: 1500, kg: 700 }; // largest weight the tool accepts, per unit
+export const LB_PER_KG = 0.45359237; // kilograms in one pound
 export const T2_RESET_ADD = { lb: 15, kg: 7.5 }; // added to the last stage 1 weight after failing 3x6 (source says 15 to 20 lb)
 
 export const increment = (lift, unit) => {
@@ -49,21 +51,22 @@ export function defaultState(unit = 'lb') {
   };
   const slots = {};
   for (const [k, w] of Object.entries(lb)) {
-    const weight = unit === 'lb' ? w : Math.max(STEP.kg, roundTo(w * 0.45359237, STEP.kg));
+    const weight = unit === 'lb' ? w : Math.max(STEP.kg, roundTo(w * LB_PER_KG, STEP.kg));
     slots[k] = { weight, stage: 0, base: weight };
   }
   return { unit, day: 0, slots };
 }
 
 // Result of one session for one slot. pass: boolean (T1, T2). reps: last-set reps (T3).
-// Returns the new slot plus a flag when the cycle reset.
+// Returns the new slot { weight, stage, base, reset }. reset is true when the cycle restarted.
+// base is the last Stage 1 weight. Only T2 reads it: a T2 reset restarts 3 × 10 from base plus a jump.
 export function progress(tier, lift, slot, input, unit) {
   const inc = increment(lift, unit);
   const step = STEP[unit];
   if (tier === 't3') {
     const bump = input.reps >= T3_BUMP_REPS;
     const weight = bump ? slot.weight + inc : slot.weight;
-    return { weight, stage: 0, base: weight, bumped: bump, reset: false };
+    return { weight, stage: 0, base: weight, reset: false };
   }
   if (input.pass) {
     const weight = slot.weight + inc;
@@ -74,9 +77,14 @@ export function progress(tier, lift, slot, input, unit) {
     const weight = Math.max(step, roundTo(slot.weight * T1_RESET, step));
     return { weight, stage: 0, base: weight, reset: true };
   }
-  const weight = roundTo(slot.base + T2_RESET_ADD[unit], step);
+  const weight = roundTo(Math.min(slot.base, slot.weight) + T2_RESET_ADD[unit], step);
   return { weight, stage: 0, base: weight, reset: true };
 }
+
+// What to do after a reset, in plain words. The wiki treats T1 and T2 differently.
+export const resetHint = (tier, unit) => tier === 't1'
+  ? 'reset: test a new 5-rep max, or use 85 percent of this weight'
+  : `reset: restart 3 × 10 at your last 3 × 10 weight plus ${T2_RESET_ADD[unit]} ${unit}`;
 
 export function sessionFor(state, dayIndex) {
   const d = DAYS[dayIndex];
@@ -112,11 +120,11 @@ export function upcoming(state, count = 3) {
   });
 }
 
-export const fromFiveRM = (rm, unit) => Math.max(STEP[unit], roundTo(rm * 0.85, STEP[unit]));
+export const fromFiveRM = (rm, unit) => Math.max(STEP[unit], roundTo(rm * T1_RESET, STEP[unit]));
 
 export function convertState(state, to) {
   if (state.unit === to) return state;
-  const f = to === 'kg' ? 0.45359237 : 1 / 0.45359237;
+  const f = to === 'kg' ? LB_PER_KG : 1 / LB_PER_KG;
   const slots = {};
   for (const [k, s] of Object.entries(state.slots)) {
     const c = (w) => Math.max(STEP[to], roundTo(w * f, STEP[to]));

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { progress, applySession, sessionFor, upcoming, defaultState, convertState, fromFiveRM, increment, roundTo, schemeText, DAYS } from '../src/lib/gzclp.js';
+import { progress, applySession, sessionFor, upcoming, defaultState, convertState, fromFiveRM, increment, roundTo, schemeText, resetHint, DAYS } from '../src/lib/gzclp.js';
+import { solve, parseNumber } from '../src/lib/plates.js';
+import { freshStore, loadStore, logSession, undoSession, entryOk } from '../src/lib/store.js';
 
 const slot = (weight, stage = 0, base = weight) => ({ weight, stage, base });
 
@@ -103,4 +105,109 @@ test('increments and rounding', () => {
   assert.equal(increment('ohp', 'kg'), 2.5);
   assert.equal(roundTo(114.75, 5), 115);
   assert.equal(roundTo(78.625, 2.5), 77.5);
+});
+
+// ---- review fixes ----
+test('T1 reset never drops below one step', () => {
+  assert.equal(progress('t1', 'ohp', slot(5, 2), { pass: false }, 'lb').weight, 5);
+});
+test('T2 reset in kg adds 7.5 kg to the last stage 1 weight (20 -> 27.5)', () => {
+  const r = progress('t2', 'bench', slot(30, 2, 20), { pass: false }, 'kg');
+  assert.equal(r.weight, 27.5);
+});
+test('T2 reset ignores a stage 1 weight above the current weight', () => {
+  // Starting mid-program with a stale base must not give a wrong jump.
+  const r = progress('t2', 'bench', slot(120, 2, 200), { pass: false }, 'lb');
+  assert.equal(r.weight, 135); // 120 + 15
+});
+test('T2 reset uses a typed stage 1 weight, not the sample base', () => {
+  const r = progress('t2', 'bench', slot(120, 2, 105), { pass: false }, 'lb');
+  assert.equal(r.weight, 120); // 105 + 15
+});
+test('reset hint differs by tier', () => {
+  assert.match(resetHint('t1', 'lb'), /5-rep max/);
+  assert.match(resetHint('t2', 'lb'), /last 3 × 10 weight plus 15 lb/);
+  assert.match(resetHint('t2', 'kg'), /plus 7.5 kg/);
+  assert.doesNotMatch(resetHint('t2', 'lb'), /5-rep max/);
+});
+test('missing results count as pass, and T3 defaults to 15 reps', () => {
+  const r = applySession(defaultState('lb'), {});
+  assert.equal(r.state.slots['t1.squat'].weight, 145);
+  assert.equal(r.state.slots.lat.weight, 70);
+});
+test('5RM in kg rounds to 2.5 kg and lb to kg and back moves by at most one step', () => {
+  assert.equal(fromFiveRM(102, 'kg'), 87.5);
+  const back = convertState(convertState(defaultState('lb'), 'kg'), 'lb');
+  assert.ok(Math.abs(back.slots['t1.squat'].weight - 135) <= 5);
+  assert.equal(convertState(defaultState('kg'), 'lb').unit, 'lb');
+});
+test('upcoming(4) lists the whole cycle', () => {
+  assert.deepEqual(upcoming(defaultState('lb'), 4).map((s) => s.day), [0, 1, 2, 3]);
+});
+
+// plates
+const P = [45, 35, 25, 10, 5, 2.5];
+test('plates: 135 lb is one 45 per side, 100 lb is 25 + 2.5', () => {
+  assert.deepEqual(solve({ target: 135, bar: 45, plates: P }).list, [{ w: 45, n: 1 }]);
+  assert.deepEqual(solve({ target: 100, bar: 45, plates: P }).list, [{ w: 25, n: 1 }, { w: 2.5, n: 1 }]);
+});
+test('plates: 315 lb is three 45s, bar only, below the bar, closest load', () => {
+  assert.deepEqual(solve({ target: 315, bar: 45, plates: P }).list, [{ w: 45, n: 3 }]);
+  assert.equal(solve({ target: 45, bar: 45, plates: P }).status, 'bar');
+  assert.equal(solve({ target: 40, bar: 45, plates: P }).status, 'below');
+  const c = solve({ target: 52.5, bar: 45, plates: [45, 35, 25, 10, 5] });
+  assert.equal(c.status, 'closest');
+});
+test('parseNumber accepts a decimal comma and rejects letters', () => {
+  assert.equal(parseNumber('62,5'), 62.5);
+  assert.ok(Number.isNaN(parseNumber('abc')));
+});
+
+// store: load, log, undo
+test('loadStore falls back to defaults for empty or broken text', () => {
+  assert.equal(loadStore(null).state.unit, 'lb');
+  assert.equal(loadStore('{not json').log.length, 0);
+});
+test('loadStore drops a bad log entry and keeps the good one (corrupt storage)', () => {
+  const good = logSession(freshStore(), {}, 'Oct 20').store;
+  const text = JSON.stringify({ state: good.state, log: [{ date: 'x' }, good.log[0], null] });
+  const loaded = loadStore(text);
+  assert.equal(loaded.log.length, 1);
+  assert.equal(loaded.log[0].date, 'Oct 20');
+  assert.equal(entryOk({ date: 'x' }), false);
+});
+test('loadStore rejects out-of-range weights', () => {
+  const st = freshStore().state;
+  st.slots['t1.squat'].weight = 0.001;
+  assert.equal(loadStore(JSON.stringify({ state: st, log: [] })).state.slots['t1.squat'].weight, 135);
+  st.slots['t1.squat'].weight = 5000;
+  assert.equal(loadStore(JSON.stringify({ state: st, log: [] })).state.slots['t1.squat'].weight, 135);
+});
+test('log then undo restores day and weights', () => {
+  const s0 = freshStore();
+  const { store } = logSession(s0, { 't1.squat': { pass: true } }, 'Oct 20');
+  assert.equal(store.state.slots['t1.squat'].weight, 145);
+  const back = undoSession(store);
+  assert.equal(back.state.slots['t1.squat'].weight, 135);
+  assert.equal(back.state.day, 0);
+  assert.equal(back.log.length, 0);
+});
+test('unit switch then undo restores the unit and the weights together', () => {
+  const { store } = logSession(freshStore(), {}, 'Oct 20');
+  const switched = { ...store, state: convertState(store.state, 'kg') };
+  const back = undoSession(switched);
+  assert.equal(back.state.unit, 'lb');
+  assert.equal(back.state.slots['t1.squat'].weight, 135);
+});
+test('undo snapshot is a deep copy: later edits do not change the log', () => {
+  const { store } = logSession(freshStore(), {}, 'Oct 20');
+  store.state.slots['t1.ohp'].weight = 999;
+  assert.equal(store.log[0].before.slots['t1.ohp'].weight, 65);
+});
+test('stage edit then fail uses the typed base (T2 at stage 3, base 105, weight 120)', () => {
+  const s = freshStore();
+  s.state.slots['t2.bench'] = { weight: 120, stage: 2, base: 105 };
+  s.state.day = 0;
+  const r = logSession(s, { 't2.bench': { pass: false } }, 'Oct 20');
+  assert.equal(r.store.state.slots['t2.bench'].weight, 120);
 });
